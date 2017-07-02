@@ -1,0 +1,226 @@
+package ramRead;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+public class MainClass 
+{		
+	static
+	{
+		System.load("/home/chronic/workspace/ramRead/src/libRamRead.so");
+	}
+	
+	private static native void readRam(ByteBuffer buff, long address, int pid);
+	private native int readSize();
+	
+	private static int PID = 3005;
+	private static String pidString = "3005";
+	private static String filePath = "/proc/"+pidString+"/maps";
+	
+	private static List<String> hex_hex = new ArrayList<String>();
+	private static List<Long> beginAddr = new ArrayList<Long>();
+	private static List<Long> endAddr = new ArrayList<Long>();
+	
+			
+	public static void readFile(String path) 
+	{		
+		List<String> fileLines = new ArrayList<String>();
+		
+		try 
+		{ 
+			fileLines = Files.readAllLines(Paths.get(path), StandardCharsets.UTF_8); 
+		} 
+		catch (IOException e) 
+		{ 
+			e.printStackTrace(); 
+		}		
+		
+		for(int i=0; i<fileLines.size(); i++)
+		{		
+			if(fileLines.get(i).contains("lib"))
+			{
+				continue;
+			}
+			hex_hex.add(fileLines.get(i).substring(0, fileLines.get(i).indexOf(" ")));
+			beginAddr.add(stringToHex(fileLines.get(i).substring(0, fileLines.get(i).indexOf("-"))));
+			endAddr.add(stringToHex(fileLines.get(i).substring(fileLines.get(i).indexOf("-")+1, fileLines.get(i).indexOf(" "))));
+		}
+		
+	}
+	
+	private static long stringToHex(String s)
+	{
+		s = s.toUpperCase();
+        
+        long[] arr = new long[s.length()];
+        long hexToDec = 0;
+        
+        for(int i=0; i<s.length(); i++)
+        {
+            if(s.charAt(i) >= 48 && s.charAt(i) <= 57)
+            {
+                arr[i] = (long) ((s.charAt(i) - 48) * Math.pow(16, s.length()-1-i));
+                hexToDec += arr[i];
+            }
+            else
+            {
+                arr[i] = (long) ((s.charAt(i) - 55) * Math.pow(16, s.length()-1-i));
+                hexToDec += arr[i];
+                
+            }
+        }
+        return hexToDec;
+	}
+	
+	public static Map<String, Integer> len()
+	{
+		//readFile(filePath);
+		Map<String, Integer> addrOffset = new HashMap<String, Integer>();
+		
+		for(int i=0; i<beginAddr.size(); i++)
+		{
+			int result = (int)((endAddr.get(i)-beginAddr.get(i))+1);
+			addrOffset.put(hex_hex.get(i), result);
+		}	
+		return addrOffset;
+	}
+	
+	/*
+	private static long findStringAddrCombo()
+	{
+		int bufferLength = bb.capacity();
+		byte[] arr = new byte[bufferLength];
+		long offSet = 0;
+		for(int i=0; bb.hasRemaining(); i++)
+		{
+			arr[i] = bb.get();			
+		}
+		
+		for(int i=0; i<arr.length; i++)
+		{
+			if(arr[i] == 49 && arr[i+1] == 97 && arr[i+2] == 46 && arr[i+3] == 32)
+			{
+				offSet = i;
+				//System.out.println("IM AM THE INDEX: " + i + "CAPACITY" + bb.capacity());
+				break;
+			}
+		}
+		return offSet;
+	}
+	*/
+	
+	private static long adresa;
+	
+	private static String filteredRamRead(int bufferLength, long addr, int PID)
+	{		
+		ByteBuffer bb = ByteBuffer.allocateDirect(bufferLength);
+		readRam(bb, addr, PID);
+		
+		//System.out.println("I AMD THE ADDRESS: " + addr);
+		//stringAddr = addr + findStringAddrCombo();
+		//System.out.println("I AM THE STRING ADDRESS: " + stringAddr);
+		long counter = 0x0;
+		boolean test00 = true;
+		StringBuilder sb = new StringBuilder();
+		
+		StringBuilder sb00 = new StringBuilder();
+		String test = "";
+		while(bb.hasRemaining()) 
+		{
+		    byte b = bb.get();
+		    
+		   //COUNTER NEEDS TO BE SOLVED
+		    
+		    if((b >= 32 && b < 127) || b == 10) 
+		    {
+		        sb.append((char) b);
+		    }
+		}	
+		String result = sb.toString();	
+		
+		CharSequence cs = "b1c3 e7e5 g1f3";
+		if(result.contains(cs)){
+			adresa = addr+counter;
+			System.out.println("Address + counter: " + 
+			adresa + 
+			" " + 
+			"original address: " + 
+			addr + 
+			" " + 
+			"Range: " + 
+			bufferLength + 
+			" " + 
+			"COUNTER: " + 
+			counter);
+			
+			return result;
+		}
+		else{
+			//System.out.println("Else Part");
+			return "not found";
+		}
+		
+		
+		//return result;
+
+	}
+
+	public static String callOrder()
+	{	
+		readFile(filePath);
+		String result = "";		
+		for(int i=0; i<beginAddr.size(); i++)
+		{
+			result += "\n\n\n########BEGIN ADDRESS RANGE########" + hex_hex.get(i) + "\n\n\n";
+			result += filteredRamRead(len().get(hex_hex.get(i)), beginAddr.get(i), PID);	
+			result += "\n\n\n########END ADDRESS RANGE########" + hex_hex.get(i) + "\n\n\n";
+		}
+		
+		return result;
+	}
+	
+	public static void main(String[] args)
+	{		
+		/*long addr2 = 0x5555c4f85000L;
+		long addr1 = 0x5555c4f84000L;
+		int bufferLength = (int)(addr2-addr1) ;
+		long address = 0x5555c4f84000L;
+		int pid = 1169;*/
+		
+		//readFile(filePath);
+		//System.out.print(len());
+		//8347648
+		
+		
+			try 
+			{
+				Files.write(Paths.get("LOOK"), callOrder().getBytes(), StandardOpenOption.CREATE);
+			} 
+			catch (IOException e) 
+			{
+				e.printStackTrace();
+			}
+			
+			System.out.println("DONE");
+			
+			
+		long newEnd = (39735296L + 10326017L) - 500000L;
+		long newBegin = 0x2fbe001L;
+		//System.out.println(filteredRamRead((int)(newEnd-newBegin), 
+				//newBegin, 
+				//3005) 
+				//+ " Second time");
+		
+		
+	}
+}
